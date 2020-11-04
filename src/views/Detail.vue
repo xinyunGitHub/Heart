@@ -8,12 +8,17 @@
     </van-swipe>
     <!--【商品标题和价格】-->
     <van-cell-group>
-      <van-cell :value="'零售价: ¥' + informData.price" :border="false" value-class="detail-price" />
+      <div class="detail-price">
+        <b>售价: </b>
+        <em>¥ </em>
+        <strong>{{ informData.price }}</strong>
+      </div>
       <van-cell :value="informData.title" :border="false" value-class="detail-title" />
     </van-cell-group>
     <van-cell-group class="detail-quality">
-      <van-cell title="运费: 包邮" />
       <van-cell title="正品保障" />
+      <van-cell title="运费: 包邮" />
+      <van-cell title="7天无理由退货" />
     </van-cell-group>
     <!--【商品详情】-->
     <van-cell-group class="detail-message">
@@ -27,13 +32,28 @@
     <van-sku
       v-model="skuDialog"
       :sku="sku"
+      :initial-sku="initialSku"
       :goods="informData"
       :goods-id="informData.unique"
       :quota="0"
       :quota-used="0"
       :hide-stock="false"
-      @buy-clicked="goBuy"
-    />
+      @stepper-change="skuCount"
+      @sku-selected="skuSelect"
+      @buy-clicked="goBuy">
+      <template #sku-actions="props">
+        <div class="van-sku-actions">
+          <van-button
+            square
+            size="large"
+            type="danger"
+            @click="props.skuEventBus.$emit('sku:buy')"
+          >
+          立即购买
+          </van-button>
+        </div>
+      </template>
+    </van-sku>
     <!--【底部固定栏】-->
     <van-goods-action>
       <van-goods-action-icon icon="chat-o" text="客服" @click="getCustom" />
@@ -49,7 +69,7 @@
 
 <script>
 import Vue from 'vue';
-import { Swipe, SwipeItem, Lazyload, Cell, CellGroup, Divider, GoodsAction, GoodsActionIcon, GoodsActionButton, Sku } from 'vant';
+import { Swipe, SwipeItem, Lazyload, Cell, CellGroup, Divider, GoodsAction, GoodsActionIcon, GoodsActionButton, Sku, Button } from 'vant';
 Vue.use(Swipe);
 Vue.use(SwipeItem);
 Vue.use(Lazyload);
@@ -60,38 +80,34 @@ Vue.use(Sku);
 Vue.use(GoodsAction);
 Vue.use(GoodsActionButton);
 Vue.use(GoodsActionIcon);
+Vue.use(Button);
 import { goodsDetail, goodsSku } from './../assets/api/detail.js'
 export default {
   name: 'Detail',
   data() {
     return {
       baseUrl: process.env.VUE_APP_SERVICE,
+      unique: '', // 商品ID
+      gather: '', // 已选规格
+      count: 1, // 已选数量
       figureData: [],
       informData: {},
       thumbData: [],
       skuDialog: false,
       sku: {
         tree: [],
-        list: [
-          {
-            id: 2259, // skuId
-            3: 3, // 规格类目 k_s 为 s1 的对应规格值 id
-            4: 6, // 规格类目 k_s 为 s2 的对应规格值 id
-            price: 100, // 价格（单位分）
-            stock_num: 110 // 当前 sku 组合对应的库存
-          }
-        ],
-        price: '1.00', // 默认价格（单位元）
-        stock_num: 100, // 商品总库存
-        collection_id: 2261, // 无规格商品 skuId 取 collection_id，否则取所选 sku 组合对应的 id
+        list: [],
+        price: '', // 默认价格（单位元）
+        stock_num: 0, // 商品总库存
         none_sku: false, // 是否无规格商品
-      }
+      },
+      initialSku: {}
     }
   },
   created() {
-    const unique = this.$route.query.unique;
-    this.detailData(unique);
-    this.detailSku(unique);
+    this.unique = this.$route.query.unique;
+    this.detailData(this.unique);
+    this.detailSku(this.unique);
   },
   methods: {
     async detailData(unique) {
@@ -102,6 +118,7 @@ export default {
       if (result.status) {
         this.figureData = result.data.figure;
         this.informData = result.data.inform;
+        this.informData['picture'] = this.baseUrl + 'storage/' + this.figureData[0]['figure'];
         this.thumbData = result.data.thumb;
         // 初始化sku数据
         this.sku.price = this.informData.price;
@@ -114,16 +131,22 @@ export default {
       let result = await goodsSku(params);
       if (result.status) {
         this.sku.tree = result.data;
-        this.sku.list = this.skuList(result.data);
-        console.log( this.sku.list, 'OOOO');
+        const group = this.skuList(result.data, 1);
+        const catalog = this.skuList(result.data, 2);
+        this.sku.list = this.skuGroup(group, catalog);
+        this.sku.stock_num = this.totalCount(this.sku.list);
       }
     },
-    skuList(tree) {
+    skuList(tree, typ) {
       let group = [];
       tree.map(item => {
         let single = [];
         item.v.map(list => {
-          single.push(list.name);
+          if (typ == 1) {
+            single.push(list.name);
+          } else {
+            single.push(list.id);
+          }
         })
         group.push(single);
       })
@@ -142,9 +165,40 @@ export default {
             }
           })
         })
-        console.log('55')
         return item;
       })
+    },
+    skuGroup(g, c) {
+      const total = [];
+      c.filter((item, i) => {
+        let li = {};
+        if (item instanceof Array) {
+          item.filter((list, l) => {
+            let key = this.sku.tree[l].k_s;
+            li[key] = list;
+            li['id'] = key * list * (l + i);
+            li['price'] = this.informData.price * 100;
+            li['stock_num'] = list + i + l; // 随便写一个库存
+            li['gather'] = g[i].join('、');
+          })
+        } else {
+          let key = this.sku.tree[0].k_s;
+          li[key] = item;
+          li['id'] = key * item;
+          li['price'] = this.informData.price * 100;
+          li['stock_num'] = item + i; // 随便写一个库存
+          li['gather'] = g[i];
+        }
+        total.push(li);
+      })
+      return total;
+    },
+    totalCount(t) {
+      let r = 0;
+      t.filter(i => {
+        r += i['stock_num'];
+      })
+      return r;
     },
     getCustom() {
       console.log('咨询客服')
@@ -157,8 +211,39 @@ export default {
     prepareBuy() {
       this.skuDialog = true;
     },
+    skuCount(val) {
+      this.count = val;
+    },
+    skuSelect(val) {
+      this.$nextTick(() => {
+        let pricenum = document.getElementsByClassName("van-sku__price-num");
+        pricenum[0].innerHTML = this.informData.price;
+      })
+      if (val.selectedSkuComb) {
+        this.gather = val.selectedSkuComb.gather;
+      } else {
+        this.gather = '';
+      }
+    },
     goBuy() {
-      console.log('gobuy')
+      console.log('gobuy', this.unique, this.gather, this.count, this.informData);
+      let params = {
+        unique: this.unique,
+        gather: this.gather,
+        count: this.count,
+        title: this.informData.title,
+        price: this.informData.price,
+        picture: this.informData.picture,
+      };
+      this.$store.commit("setOrderList", params);
+      this.$router.push({
+        name: 'Order',
+        query: {
+          unique: this.unique,
+          gather: this.gather,
+          count: this.count
+        }
+      });
     }
   }
 }
@@ -183,8 +268,23 @@ export default {
     }
   }
   .detail-price {
-    font-size: 18px;
-    color: #ee0a24;
+    padding: 0 16px;
+    line-height: 24px;
+    > b {
+      font-size: 14px;
+      color: #ee0a24;
+      font-weight: 400;
+    }
+    > em {
+      font-size: 16px;
+      color: #ee0a24;
+      font-weight: 400;
+    }
+    > strong {
+      font-size: 22px;
+      color: #ee0a24;
+      font-weight: 500;
+    }
   }
   .detail-title {
     font-size: 16px;
