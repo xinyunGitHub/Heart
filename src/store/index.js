@@ -8,6 +8,7 @@ export default new Vuex.Store({
     addressList: [], // 用户收获地址
     addressActive: '', // 用户默认收获地址id
     orderList: {}, // 订单清单
+    waterCode: '', // 订单流水号
   },
   getters: {
     getAddressList(state) {
@@ -19,6 +20,9 @@ export default new Vuex.Store({
     getOrderList(state) {
       return state.orderList;
     },
+    getWaterCode(state) {
+      return state.waterCode;
+    },
   },
   mutations: {
     setAddressList(state, addressList) {
@@ -29,6 +33,9 @@ export default new Vuex.Store({
     },
     setOrderList(state, orderList) {
       state.orderList = orderList;
+    },
+    setWaterCode(state, waterCode) {
+      state.waterCode = waterCode;
     },
   },
   actions: {

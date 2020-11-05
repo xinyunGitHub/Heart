@@ -41,6 +41,12 @@
       @stepper-change="skuCount"
       @sku-selected="skuSelect"
       @buy-clicked="goBuy">
+      <template #sku-header-price>
+        <div class="sku-price">
+          <em>¥ </em>
+          <strong>{{ informData.price }}</strong>
+        </div>
+      </template>
       <template #sku-actions="props">
         <div class="van-sku-actions">
           <van-button
@@ -177,7 +183,7 @@ export default {
             let key = this.sku.tree[l].k_s;
             li[key] = list;
             li['id'] = key * list * (l + i);
-            li['price'] = this.informData.price * 100;
+            // li['price'] = this.informData.price * 100;
             li['stock_num'] = list + i + l; // 随便写一个库存
             li['gather'] = g[i].join('、');
           })
@@ -185,7 +191,7 @@ export default {
           let key = this.sku.tree[0].k_s;
           li[key] = item;
           li['id'] = key * item;
-          li['price'] = this.informData.price * 100;
+          // li['price'] = this.informData.price * 100;
           li['stock_num'] = item + i; // 随便写一个库存
           li['gather'] = g[i];
         }
@@ -215,10 +221,6 @@ export default {
       this.count = val;
     },
     skuSelect(val) {
-      this.$nextTick(() => {
-        let pricenum = document.getElementsByClassName("van-sku__price-num");
-        pricenum[0].innerHTML = this.informData.price;
-      })
       if (val.selectedSkuComb) {
         this.gather = val.selectedSkuComb.gather;
       } else {
@@ -231,18 +233,14 @@ export default {
         unique: this.unique,
         gather: this.gather,
         count: this.count,
+        id: this.informData.id,
         title: this.informData.title,
         price: this.informData.price,
         picture: this.informData.picture,
       };
       this.$store.commit("setOrderList", params);
       this.$router.push({
-        name: 'Order',
-        query: {
-          unique: this.unique,
-          gather: this.gather,
-          count: this.count
-        }
+        name: 'Order'
       });
     }
   }
@@ -299,6 +297,18 @@ export default {
     > img {
       width: 100%;
       height: auto;
+    }
+  }
+  .sku-price {
+    > em {
+      font-size: 16px;
+      color: #ee0a24;
+      font-weight: 400;
+    }
+    > strong {
+      font-size: 22px;
+      color: #ee0a24;
+      font-weight: 500;
     }
   }
 }

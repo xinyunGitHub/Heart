@@ -29,13 +29,21 @@
     <van-card
       v-if="goodsInfo.title"
       :num="goodsInfo.count"
-      :price="goodsInfo.price"
       :desc="'已选规格: ' + goodsInfo.gather"
-      :title="goodsInfo.title"
       class="order-item"
       style="background-color: #ffffff;"
       :thumb="goodsInfo.picture"
-    />
+    >
+      <template #title>
+        <h3 class="goods-card">{{ goodsInfo.title }}</h3>
+      </template>
+      <template #price>
+        <div class="goods-price">
+          <em>¥ </em>
+          <strong>{{ goodsInfo.price }}</strong>
+        </div>
+      </template>
+    </van-card>
     <!--【用户留言】-->
     <van-field
       v-model="message"
@@ -55,7 +63,16 @@
       <van-cell title="7天无理由退货" />
     </van-cell-group>
     <!--【提交订单】-->
-    <van-submit-bar :price="amount" button-text="提交订单" @submit="onPay" />
+    <van-submit-bar
+      :price="amount"
+      :decimal-length="0"
+      button-text="提交订单"
+      @submit="onPay"
+    >
+    <template #price>
+      <span>sd</span>
+    </template>
+    </van-submit-bar>
   </div>
 </template>
 
@@ -67,7 +84,7 @@ Vue.use(CellGroup);
 Vue.use(Card);
 Vue.use(Field);
 Vue.use(SubmitBar);
-import { addressOrder } from './../assets/api/order.js'
+import { addressOrder, inventoryOrder } from './../assets/api/order.js'
 import { getItem } from './../assets/js/apputils.js'
 export default {
   name: 'Order',
@@ -79,7 +96,7 @@ export default {
       },
       goodsInfo: this.$store.getters.getOrderList,
       message: '',
-      amount: this.$store.getters.getOrderList.price * this.$store.getters.getOrderList.count
+      amount: this.$store.getters.getOrderList.price * this.$store.getters.getOrderList.count * 100
     }
   },
   created() {
@@ -99,6 +116,26 @@ export default {
     },
     onPay() {
       console.log('onPay', this.addressInfo, this.goodsInfo, this.amount);
+      this.onInventory();
+    },
+    async onInventory() { // 生成订单
+      let params = {
+        openid: getItem('userInfo').openid,
+        addressId: this.addressInfo.id,
+        gather: this.goodsInfo.gather,
+        count: this.goodsInfo.count,
+        price: this.goodsInfo.price,
+        goodsId: this.goodsInfo.id,
+        unique: this.goodsInfo.unique,
+        amount: parseInt(this.amount / 100)
+      };
+      let result = await inventoryOrder(params);
+      if (result.status) {
+        this.$store.commit('setWaterCode', result.data);
+        this.$router.push({
+          name: 'Achieve'
+        });
+      }
     }
   }
 }
@@ -130,6 +167,23 @@ export default {
   }
   .order-empty {
     padding: 24px 16px;
+  }
+  .goods-card {
+    font-size: 16px;
+    color: #333333;
+    font-weight: 400;
+  }
+  .goods-price {
+    > em {
+      font-size: 14px;
+      color: #333333;
+      font-weight: 400;
+    }
+    > strong {
+      font-size: 16px;
+      color: #333333;
+      font-weight: 400;
+    }
   }
 }
 </style>

@@ -1,8 +1,8 @@
 <template>
   <div class="home">
     <van-swipe class="home-swipe" :autoplay="3000" indicator-color="white">
-      <van-swipe-item v-for="(item, index) in swiperData" :key="index">
-        <img v-lazy="item.image" />
+      <van-swipe-item v-for="(item, index) in swiperData" :key="index" @click="swiperRoute(item.route)">
+        <img v-lazy="baseUrl + 'storage/' + item.thumb" />
       </van-swipe-item>
     </van-swipe>
     <van-tabs v-model="active" animated swipeable sticky>
@@ -55,16 +55,13 @@ Vue.use(Grid);
 Vue.use(GridItem);
 Vue.use(VanImage);
 import './../assets/css/home.less'
-import { homeTabs } from './../assets/api/home.js'
+import { homeTabs, homeAdvert } from './../assets/api/home.js'
 export default {
   name: 'Home',
   data() {
     return {
       baseUrl: process.env.VUE_APP_SERVICE,
-      swiperData: [
-        {id: 1, image: '', url: ''},
-        {id: 1, image: '', url: ''},
-      ],
+      swiperData: [],
       loadGoods: true,
       chinaData: [],
       yearData: [],
@@ -73,7 +70,16 @@ export default {
       active: 0,
     };
   },
+  created() {
+    this.fetchAdvert();
+  },
   methods: {
+    async fetchAdvert() {
+      let result = await homeAdvert();
+      if (result.status) {
+        this.swiperData = result.data;
+      }
+    },
     async tabsData() {
       if (this.loadGoods) {
         this.loadGoods = false;
@@ -93,6 +99,14 @@ export default {
           unique: unique
         }
       });
+    },
+    swiperRoute(route) {
+      this.$router.push({
+        name: 'Detail',
+        query: {
+          unique: route
+        }
+      });
     }
   }
 }
@@ -107,7 +121,7 @@ export default {
   .home-swipe {
     width: 100%;
     height: 2.5rem;
-    background-color: #39a9ed;
+    background-color: #ffffff;
     .van-swipe-item {
       width: 100%;
       height: 2.5rem;
